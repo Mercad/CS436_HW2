@@ -16,6 +16,7 @@
 const int backlog = 4;
 
 void *clientHandler(void *arg);
+void Get(char reponse[], char request[]);
 char* substring(char *string, int position, int length);
 int contains(char str1[], char str2[]);
 //char *dnsLookup(char dns[]);
@@ -63,7 +64,7 @@ int main(int argc, char *argv[])
 	if (bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) == -1)
 	{
 		fprintf(stderr, "Error binding to socket, errno = %d (%s) \n", errno,
-				strerror(errno));
+		strerror(errno));
 
 		return -1;
 	}
@@ -72,8 +73,8 @@ int main(int argc, char *argv[])
 	if (listen(listenfd, backlog) == -1)
 	{
 		fprintf(stderr,
-				"Error listening for connection request, errno = %d (%s) \n",
-				errno, strerror(errno));
+		"Error listening for connection request, errno = %d (%s) \n", errno,
+		strerror(errno));
 
 		return -1;
 	}
@@ -86,13 +87,13 @@ int main(int argc, char *argv[])
 		if ((connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen))
 				< 0)
 		{
-			if (errno == EINTR)
+			if (errno== EINTR)
 				continue;
 			else
 			{
 				fprintf(stderr,
-						"Error connection request refused, errno = %d (%s) \n",
-						errno, strerror(errno));
+				"Error connection request refused, errno = %d (%s) \n", errno,
+				strerror(errno));
 			}
 		}
 
@@ -100,8 +101,8 @@ int main(int argc, char *argv[])
 		if (pthread_create(&tid, NULL, clientHandler, (void *) &connfd) != 0)
 		{
 			fprintf(stderr,
-					"Error unable to create thread, errno = %d (%s) \n", errno,
-					strerror(errno));
+			"Error unable to create thread, errno = %d (%s) \n", errno,
+			strerror(errno));
 		}
 
 	}
@@ -128,6 +129,16 @@ void *clientHandler(void *arg)
 			return;
 		}
 
+		// Process the HTTP Request the user sent to the server.
+		printf("The user sent the message: %s \n", buffer);
+		if (contains(buffer, "HTTP/1.1") == 0 && contains(buffer, "HTTP/1.0")
+				== 0)
+		{
+			printf("The message received was not an HTTP message %s", " ");
+			close(fd);
+			return;
+		}
+
 		//char *str = dnsLookup(dns);
 
 		write(fd, str, strlen(str));
@@ -135,12 +146,149 @@ void *clientHandler(void *arg)
 }
 
 char *requestHandler(char request[])
-{/*
-	GET: Retrieve the specified resource
-	HEAD: Asks for a response identical to the one that would correspond to a GET request, but without the response body. This is useful for retrieving meta-information written in response headers, without having to transport the entire content.
-	PUT: Uploads the specified resource.
-	DELETE: Deletes the specified resource.
-	*/
+{
+
+	char* response = malloc(sizeof(char) * 9999);
+
+	char directory[MAX_LINE];
+
+	if (contains(request, "GET") == 1)
+	{
+		get(response, request);
+        reponse = head(response);
+	}
+	else if (contains(buffer, "PUT") == 1)
+	{
+		put(request);
+	}
+	else if (contains(buffer, "DELETE") == 1)
+	{
+		delete(request);
+	}
+	else if (contains(buffer, "HEAD") == 1)
+	{
+		response = head(response);
+	}
+	/*
+	 GET: Retrieve the specified resource
+	 HEAD: Asks for a response identical to the one that would correspond to a GET request, but without the response body. This is useful for retrieving meta-information written in response headers, without having to transport the entire content.
+	 PUT: Uploads the specified resource.
+	 DELETE: Deletes the specified resource.
+	 */
+}
+
+void Get(char reponse[], char request[])
+{
+	char script[999];
+	// Gets the filename from the sent request.
+	char *fileName = (char*) malloc(sizeof(buffer) - 13);
+	strncpy(fileName, buffer + 13, sizeof(buffer) - 13);
+	fileName = substring(fileName, 0, strlen(fileName) - 2);
+	FILE * fp;
+
+	getcwd(directory, sizeof(directory));
+	strcat(script, "cat ");
+	strcat(script, directory);
+	strcat(script, "/");
+	strcat(script, fileName);
+	printf("The script will run: %s. \n", script);
+	// The script is now generated, just run it.
+
+	fp = popen(script, "r");
+	char line[999];
+	while (fgets(line, sizeof(line) - 1, fp) != NULL)
+	{
+		strcat(response, line);
+	}
+	if (strlen(response) == 0)
+	{
+		strcat(response, "404 error: File not found");
+	}
+	printf("The response was: %s \n", response);
+}
+
+char* Head(response[])
+{
+	char *headerResponse;
+	char date[256];
+
+	char *ctime();
+	time_t now;
+
+	(void) time(&now);
+	sprintf(date, "%s", ctime(&now));
+
+	strcat(headerResponse, "Content-Type: text/html; ");
+	strcat(headerResponse, "charset=UTF-8 \n");
+	strcat(headerResponse, "Server:CS436 Project \n");
+	strcat(headerResponse, "Date: ");
+	strcat(headerResponse, date);
+	strcat(headerResponse, "Content-Length: ");
+	strcat(headerResponse, strlen(response) + 3);
+	strcat(headerResponse, "\n");
+	strcat(headerResponse, response);
+	strcat(headerResponse, "\n");
+
+	return (headerResponse);
+}
+
+void Put()
+{
+	// PUT request in the following Format
+	// PUT HTTP/1.1 [filename] <filedata>data</filedata>
+
+	// Gets the filename from the sent request.
+	char *temp = strstr(buffer, "<filedata>");
+	int filenameOffset = temp - buffer;
+
+	//File name is set
+	char *fileName = (char*) malloc(filenameOffset - 1);
+	strncpy(fileName, buffer + 13, filenameOffset - 14);
+
+	printf("The file name is: %s\n", fileName);
+
+	//Get the file Data
+	char *fileData = (char*) malloc(sizeof(buffer) - filenameOffset);
+	strncpy(fileData, buffer + filenameOffset,
+			(sizeof(buffer) - filenameOffset) - 1);
+	printf("The file data is: %s\n", fileData);
+
+	FILE * fileOutput;
+	fileOutput = fopen(fileName, "w");
+	if (fileOutput != NULL)
+	{
+		fputs(fileData, fileOutput);
+		fclose(fileOutput);
+	}
+	else
+	{
+		printf("Error Writing file\n");
+	}
+	status = write(socket, "PUT request processed \n", 22);
+}
+
+void Delete()
+{
+	// Gets the filename from the sent request.
+	char *fileName = (char*) malloc(sizeof(buffer) - 16);
+	strncpy(fileName, buffer + 16, sizeof(buffer) - 16);
+	fileName = substring(fileName, 0, strlen(fileName) - 2);
+	FILE * fp;
+	getcwd(directory, sizeof(directory));
+	strcat(script, "rm ");
+	strcat(script, directory);
+	strcat(script, "/");
+	strcat(script, fileName);
+	printf("The script will run: %s. \n", script);
+	// The script is now generated, just run it.
+
+	fp = popen(script, "r");
+	char line[999];
+	while (fgets(line, sizeof(line) - 1, fp) != NULL)
+	{
+		strcat(response, line);
+	}
+	status = write(socket, response, strlen(response));
 }
 
 char *substring(char *string, int position, int length)
