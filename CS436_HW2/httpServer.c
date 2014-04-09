@@ -17,6 +17,8 @@ const int backlog = 4;
 
 void *clientHandler(void *arg);
 void Get(char reponse[], char request[]);
+char* Head(char response[]);
+void Delete(char request[], char response[]);
 char* substring(char *string, int position, int length);
 int contains(char str1[], char str2[]);
 //char *dnsLookup(char dns[]);
@@ -139,23 +141,26 @@ void *clientHandler(void *arg)
 			return;
 		}
 
-		//char *str = dnsLookup(dns);
+		char *str = requestHandler(request);
 
 		write(fd, str, strlen(str));
 	}
 }
 
+/********************************************************************************
+ * requestHandler
+ * ------------------------------------------------------------------------------
+ * @param request the command issued from the client
+ * @return response string to hold the contents of the command issued
+ ********************************************************************************/
 char *requestHandler(char request[])
 {
-
 	char* response = malloc(sizeof(char) * 9999);
-
-	char directory[MAX_LINE];
 
 	if (contains(request, "GET") == 1)
 	{
 		get(response, request);
-        reponse = head(response);
+		reponse = head(response);
 	}
 	else if (contains(buffer, "PUT") == 1)
 	{
@@ -163,23 +168,24 @@ char *requestHandler(char request[])
 	}
 	else if (contains(buffer, "DELETE") == 1)
 	{
-		delete(request);
+		delete(response, request);
 	}
 	else if (contains(buffer, "HEAD") == 1)
 	{
 		response = head(response);
 	}
-	/*
-	 GET: Retrieve the specified resource
-	 HEAD: Asks for a response identical to the one that would correspond to a GET request, but without the response body. This is useful for retrieving meta-information written in response headers, without having to transport the entire content.
-	 PUT: Uploads the specified resource.
-	 DELETE: Deletes the specified resource.
-	 */
+	else
+	{
+		strcpy(reponse, "Invalid Request\n");
+	}
+
+	return response;
 }
 
 void Get(char reponse[], char request[])
 {
 	char script[999];
+	char directory[MAX_LINE];
 	// Gets the filename from the sent request.
 	char *fileName = (char*) malloc(sizeof(buffer) - 13);
 	strncpy(fileName, buffer + 13, sizeof(buffer) - 13);
@@ -207,9 +213,9 @@ void Get(char reponse[], char request[])
 	printf("The response was: %s \n", response);
 }
 
-char* Head(response[])
+char* Head(char response[])
 {
-	char *headerResponse;
+	char *headerResponse = malloc(sizeof(char) * 9999);
 	char date[256];
 
 	char *ctime();
@@ -232,11 +238,8 @@ char* Head(response[])
 	return (headerResponse);
 }
 
-void Put()
+void Put(char request[])
 {
-	// PUT request in the following Format
-	// PUT HTTP/1.1 [filename] <filedata>data</filedata>
-
 	// Gets the filename from the sent request.
 	char *temp = strstr(buffer, "<filedata>");
 	int filenameOffset = temp - buffer;
@@ -264,14 +267,15 @@ void Put()
 	{
 		printf("Error Writing file\n");
 	}
-	status = write(socket, "PUT request processed \n", 22);
+	return ("PUT request processed \n");
 }
 
-void Delete()
+void Delete(char response[], char request[])
 {
+	char directory[MAX_LINE];
 	// Gets the filename from the sent request.
-	char *fileName = (char*) malloc(sizeof(buffer) - 16);
-	strncpy(fileName, buffer + 16, sizeof(buffer) - 16);
+	char *fileName = (char*) malloc(sizeof(request) - 16);
+	strncpy(fileName, request + 16, sizeof(request) - 16);
 	fileName = substring(fileName, 0, strlen(fileName) - 2);
 	FILE * fp;
 	getcwd(directory, sizeof(directory));
@@ -288,7 +292,6 @@ void Delete()
 	{
 		strcat(response, line);
 	}
-	status = write(socket, response, strlen(response));
 }
 
 char *substring(char *string, int position, int length)
