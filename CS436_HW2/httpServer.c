@@ -15,13 +15,14 @@
 #define PORT_NUMBER 9001
 const int backlog = 4;
 
+char *requestHandler(char request[]);
 void *clientHandler(void *arg);
 void Get(char reponse[], char request[]);
 char* Head(char response[]);
 void Delete(char request[], char response[]);
+char *Put(char request[]);
 char* substring(char *string, int position, int length);
 int contains(char str1[], char str2[]);
-//char *dnsLookup(char dns[]);
 
 int main(int argc, char *argv[])
 {
@@ -39,7 +40,7 @@ int main(int argc, char *argv[])
 	}
 	else if (argc == 2)
 	{
-		portNumber = (unsigned short) atoi(args[1]);
+		portNumber = (unsigned short) atoi(argv[1]);
 	}
 	else if (argc > 2)
 	{
@@ -132,8 +133,8 @@ void *clientHandler(void *arg)
 		}
 
 		// Process the HTTP Request the user sent to the server.
-		printf("The user sent the message: %s \n", buffer);
-		if (contains(buffer, "HTTP/1.1") == 0 && contains(buffer, "HTTP/1.0")
+		printf("The user sent the message: %s \n", request);
+		if (contains(request, "HTTP/1.1") == 0 && contains(request, "HTTP/1.0")
 				== 0)
 		{
 			printf("The message received was not an HTTP message %s", " ");
@@ -144,6 +145,9 @@ void *clientHandler(void *arg)
 		char *str = requestHandler(request);
 
 		write(fd, str, strlen(str));
+
+		close(fd);
+		return;
 	}
 }
 
@@ -155,41 +159,48 @@ void *clientHandler(void *arg)
  ********************************************************************************/
 char *requestHandler(char request[])
 {
+	printf("RequestHander 1\n");
 	char* response = malloc(sizeof(char) * 9999);
 
 	if (contains(request, "GET") == 1)
 	{
-		get(response, request);
-		reponse = head(response);
+		printf("RequestHander GET\n");
+		Get(response, request);
+		response = Head(response);
 	}
-	else if (contains(buffer, "PUT") == 1)
+	else if (contains(request, "PUT") == 1)
 	{
-		put(request);
+		printf("RequestHander PUT\n");
+		response = Put(request);
 	}
-	else if (contains(buffer, "DELETE") == 1)
+	else if (contains(request, "DELETE") == 1)
 	{
-		delete(response, request);
+		printf("RequestHander DEL\n");
+		Delete(response, request);
 	}
-	else if (contains(buffer, "HEAD") == 1)
+	else if (contains(request, "HEAD") == 1)
 	{
-		response = head(response);
+		printf("RequestHander HEAD\n");
+		response = Head(response);
 	}
 	else
 	{
-		strcpy(reponse, "Invalid Request\n");
+		printf("RequestHander INVALID\n");
+		strcpy(response, "Invalid Request\n");
 	}
 
+	printf("RequestHander 2\n");
 	return response;
 }
 
-void Get(char reponse[], char request[])
+void Get(char response[], char request[])
 {
 	char script[999];
-	char directory[MAX_LINE];
+	char directory[MAXLINE];
 	// Gets the filename from the sent request.
-	char *fileName = (char*) malloc(sizeof(buffer) - 13);
-	strncpy(fileName, buffer + 13, sizeof(buffer) - 13);
-	fileName = substring(fileName, 0, strlen(fileName) - 2);
+	char *fileName = (char*) malloc(sizeof(request) - 13);
+
+	fileName = substring(request, 14, strlen(request) - 2);
 	FILE * fp;
 
 	getcwd(directory, sizeof(directory));
@@ -230,7 +241,9 @@ char* Head(char response[])
 	strcat(headerResponse, "Date: ");
 	strcat(headerResponse, date);
 	strcat(headerResponse, "Content-Length: ");
-	strcat(headerResponse, strlen(response) + 3);
+	char length[20];
+	sprintf(length, "%d", strlen(response) + 3);
+	strcat(headerResponse, length);
 	strcat(headerResponse, "\n");
 	strcat(headerResponse, response);
 	strcat(headerResponse, "\n");
@@ -238,22 +251,22 @@ char* Head(char response[])
 	return (headerResponse);
 }
 
-void Put(char request[])
+char* Put(char request[])
 {
 	// Gets the filename from the sent request.
-	char *temp = strstr(buffer, "<filedata>");
-	int filenameOffset = temp - buffer;
+	char *temp = strstr(request, "<filedata>");
+	int filenameOffset = temp - request;
 
 	//File name is set
 	char *fileName = (char*) malloc(filenameOffset - 1);
-	strncpy(fileName, buffer + 13, filenameOffset - 14);
+	strncpy(fileName, request + 13, filenameOffset - 14);
 
 	printf("The file name is: %s\n", fileName);
 
 	//Get the file Data
-	char *fileData = (char*) malloc(sizeof(buffer) - filenameOffset);
-	strncpy(fileData, buffer + filenameOffset,
-			(sizeof(buffer) - filenameOffset) - 1);
+	char *fileData = (char*) malloc(sizeof(request) - filenameOffset);
+	strncpy(fileData, request + filenameOffset, (sizeof(request)
+			- filenameOffset) - 1);
 	printf("The file data is: %s\n", fileData);
 
 	FILE * fileOutput;
@@ -272,7 +285,8 @@ void Put(char request[])
 
 void Delete(char response[], char request[])
 {
-	char directory[MAX_LINE];
+	char script[999];
+	char directory[MAXLINE];
 	// Gets the filename from the sent request.
 	char *fileName = (char*) malloc(sizeof(request) - 16);
 	strncpy(fileName, request + 16, sizeof(request) - 16);
