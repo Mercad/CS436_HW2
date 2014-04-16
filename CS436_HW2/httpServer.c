@@ -159,14 +159,16 @@ void *clientHandler(void *arg)
  ********************************************************************************/
 char *requestHandler(char request[])
 {
-	printf("RequestHander 1\n");
 	char* response = malloc(sizeof(char) * 9999);
 
 	if (contains(request, "GET") == 1)
 	{
 		printf("RequestHander GET\n");
 		Get(response, request);
-		response = Head(response);
+		if(strlen(response) > 0)
+		{
+			response = Head(response);
+		}
 	}
 	else if (contains(request, "PUT") == 1)
 	{
@@ -189,7 +191,6 @@ char *requestHandler(char request[])
 		strcpy(response, "Invalid Request\n");
 	}
 
-	printf("RequestHander 2\n");
 	return response;
 }
 
@@ -200,28 +201,33 @@ void Get(char response[], char request[])
 	// Gets the filename from the sent request.
 	char *fileName = (char*) malloc(sizeof(request) - 13);
 
-	fileName = substring(request, 14, strlen(request) - 2);
+	fileName = substring(request, 14, strlen(request) - 15 );
 	FILE * fp;
 
+	printf("fileName:%s\n", fileName);
 	getcwd(directory, sizeof(directory));
 	strcat(script, "cat ");
 	strcat(script, directory);
 	strcat(script, "/");
 	strcat(script, fileName);
-	printf("The script will run: %s. \n", script);
+	printf("The script will run: %s\n", script);
 	// The script is now generated, just run it.
 
 	fp = popen(script, "r");
+	if(fp == NULL)
+	{
+		strcat(response, "404 error: File not found");
+		return;
+	}
+
 	char line[999];
-	while (fgets(line, sizeof(line) - 1, fp) != NULL)
+	printf("Line declared\n");
+	while (fgets(line, 999, fp) != NULL)
 	{
 		strcat(response, line);
 	}
-	if (strlen(response) == 0)
-	{
-		strcat(response, "404 error: File not found");
-	}
-	printf("The response was: %s \n", response);
+
+	pclose(fp);
 }
 
 char* Head(char response[])
@@ -242,7 +248,7 @@ char* Head(char response[])
 	strcat(headerResponse, date);
 	strcat(headerResponse, "Content-Length: ");
 	char length[20];
-	sprintf(length, "%d", strlen(response) + 3);
+	sprintf(length, "%d", strlen(response));
 	strcat(headerResponse, length);
 	strcat(headerResponse, "\n");
 	strcat(headerResponse, response);
@@ -259,14 +265,23 @@ char* Put(char request[])
 
 	//File name is set
 	char *fileName = (char*) malloc(filenameOffset - 1);
-	strncpy(fileName, request + 13, filenameOffset - 14);
+
+	printf("PUT 1\n");
+	fileName = substring(request, 14, filenameOffset - 14);
+	printf("PUT 2\n");
+	//strncpy(fileName, request + 13, filenameOffset - 14);
 
 	printf("The file name is: %s\n", fileName);
 
 	//Get the file Data
 	char *fileData = (char*) malloc(sizeof(request) - filenameOffset);
-	strncpy(fileData, request + filenameOffset, (sizeof(request)
-			- filenameOffset) - 1);
+
+	//printf("fileName:%d)", strlen(fileName));
+	printf("strlen(fileName) + filenameOffset%d\n", strlen(fileName) + filenameOffset);
+	printf("strlen(request) - 12:%d\n", strlen(request) - 12);
+
+	fileData = substring(request, strlen(fileName) + filenameOffset + 1
+			, strlen(request) - (strlen(fileName) + filenameOffset + 13) );
 	printf("The file data is: %s\n", fileData);
 
 	FILE * fileOutput;
