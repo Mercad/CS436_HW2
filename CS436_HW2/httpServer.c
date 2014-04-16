@@ -119,13 +119,13 @@ int main(int argc, char *argv[])
  ********************************************************************************/
 void *clientHandler(void *arg)
 {
-	char request[MAXLINE];
+
 	int i, n;
+	int count = 0;
 
 	int fd = *(int*) (arg);
 
-	while (1)
-	{
+		char request[MAXLINE];
 		if ((n = read(fd, request, MAXLINE)) == 0)
 		{
 			close(fd);
@@ -133,7 +133,6 @@ void *clientHandler(void *arg)
 		}
 
 		// Process the HTTP Request the user sent to the server.
-		printf("The user sent the message: %s \n", request);
 		if (contains(request, "HTTP/1.1") == 0 && contains(request, "HTTP/1.0")
 				== 0)
 		{
@@ -147,8 +146,6 @@ void *clientHandler(void *arg)
 		write(fd, str, strlen(str));
 
 		close(fd);
-		return;
-	}
 }
 
 /********************************************************************************
@@ -163,31 +160,26 @@ char *requestHandler(char request[])
 
 	if (contains(request, "GET") == 1)
 	{
-		printf("RequestHander GET\n");
 		Get(response, request);
-		if(strlen(response) > 0)
+		if (strlen(response) > 0)
 		{
 			response = Head(response);
 		}
 	}
 	else if (contains(request, "PUT") == 1)
 	{
-		printf("RequestHander PUT\n");
 		response = Put(request);
 	}
 	else if (contains(request, "DELETE") == 1)
 	{
-		printf("RequestHander DEL\n");
 		Delete(response, request);
 	}
 	else if (contains(request, "HEAD") == 1)
 	{
-		printf("RequestHander HEAD\n");
 		response = Head(response);
 	}
 	else
 	{
-		printf("RequestHander INVALID\n");
 		strcpy(response, "Invalid Request\n");
 	}
 
@@ -198,30 +190,30 @@ void Get(char response[], char request[])
 {
 	char script[999];
 	char directory[MAXLINE];
+
 	// Gets the filename from the sent request.
 	char *fileName = (char*) malloc(sizeof(request) - 13);
+	fileName = substring(request, 14, strlen(request) - 15);
 
-	fileName = substring(request, 14, strlen(request) - 15 );
 	FILE * fp;
 
-	printf("fileName:%s\n", fileName);
+	// Process a script to execute on the shell
 	getcwd(directory, sizeof(directory));
 	strcat(script, "cat ");
 	strcat(script, directory);
 	strcat(script, "/");
 	strcat(script, fileName);
-	printf("The script will run: %s\n", script);
-	// The script is now generated, just run it.
+	//printf("The script will run: %s\n", script);
 
+	// The script is now generated, just run it.
 	fp = popen(script, "r");
-	if(fp == NULL)
+	if (fp == NULL)
 	{
 		strcat(response, "404 error: File not found");
 		return;
 	}
 
 	char line[999];
-	printf("Line declared\n");
 	while (fgets(line, 999, fp) != NULL)
 	{
 		strcat(response, line);
@@ -265,23 +257,13 @@ char* Put(char request[])
 
 	//File name is set
 	char *fileName = (char*) malloc(filenameOffset - 1);
-
-	printf("PUT 1\n");
 	fileName = substring(request, 14, filenameOffset - 14);
-	printf("PUT 2\n");
-	//strncpy(fileName, request + 13, filenameOffset - 14);
-
-	printf("The file name is: %s\n", fileName);
 
 	//Get the file Data
 	char *fileData = (char*) malloc(sizeof(request) - filenameOffset);
 
-	//printf("fileName:%d)", strlen(fileName));
-	printf("strlen(fileName) + filenameOffset%d\n", strlen(fileName) + filenameOffset);
-	printf("strlen(request) - 12:%d\n", strlen(request) - 12);
-
-	fileData = substring(request, strlen(fileName) + filenameOffset + 1
-			, strlen(request) - (strlen(fileName) + filenameOffset + 13) );
+	fileData = substring(request, strlen(fileName) + filenameOffset + 1,
+			strlen(request) - (strlen(fileName) + filenameOffset + 13));
 	printf("The file data is: %s\n", fileData);
 
 	FILE * fileOutput;
@@ -293,7 +275,7 @@ char* Put(char request[])
 	}
 	else
 	{
-		printf("Error Writing file\n");
+		return ("Error Writing file\n");
 	}
 	return ("PUT request processed \n");
 }
@@ -304,23 +286,31 @@ void Delete(char response[], char request[])
 	char directory[MAXLINE];
 	// Gets the filename from the sent request.
 	char *fileName = (char*) malloc(sizeof(request) - 16);
-	strncpy(fileName, request + 16, sizeof(request) - 16);
-	fileName = substring(fileName, 0, strlen(fileName) - 2);
+	fileName = substring(request, 17, strlen(request) - 18);
+
 	FILE * fp;
 	getcwd(directory, sizeof(directory));
 	strcat(script, "rm ");
 	strcat(script, directory);
 	strcat(script, "/");
 	strcat(script, fileName);
-	printf("The script will run: %s. \n", script);
+	//printf("The script will run: %s\n", script);
 	// The script is now generated, just run it.
 
 	fp = popen(script, "r");
+	if (fp == NULL)
+	{
+		strcat(response, "404 error: File not found");
+		return;
+	}
+
 	char line[999];
-	while (fgets(line, sizeof(line) - 1, fp) != NULL)
+	while (fgets(line, 999, fp) != NULL)
 	{
 		strcat(response, line);
 	}
+
+	pclose(fp);
 }
 
 char *substring(char *string, int position, int length)
